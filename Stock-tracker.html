@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Tracker — บันทึกหุ้นรายเดือน</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+ :root {
+   --bg: #07090f;
+   --bg2: #0c1220;
+   --bg3: #111827;
+   --border: #1c2e4a;
+   --border2: #243550;
+   --text: #e2e8f0;
+   --text2: #94a3b8;
+   --text3: #475569;
+   --blue: #3b82f6;
+   --blue2: #1d4ed8;
+   --green: #4ade80;
+   --red: #f87171;
+   --yellow: #fbbf24;
+   --cyan: #38bdf8;
+ }
+ * { box-sizing: border-box; margin: 0; padding: 0; }
+ body {
+   background: var(--bg);
+   color: var(--text);
+   font-family: 'Sarabun', sans-serif;
+   font-size: 15px;
+   min-height: 100vh;
+ }
+ ::-webkit-scrollbar { width: 5px; height: 5px; }
+ ::-webkit-scrollbar-track { background: var(--bg2); }
+ ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+/* HEADER */
+.header {
+background: linear-gradient(135deg, var(–bg2) 0%, #0a1628 100%);
+border-bottom: 1px solid var(–border);
+padding: 16px 28px;
+display: flex;
+align-items: center;
+gap: 12px;
+flex-wrap: wrap;
+position: sticky;
+top: 0;
+z-index: 50;
+backdrop-filter: blur(12px);
+}
+.header-logo {
+width: 38px; height: 38px;
+background: linear-gradient(135deg, var(–blue2), #0ea5e9);
+border-radius: 10px;
+display: flex; align-items: center; justify-content: center;
+font-size: 18px;
+flex-shrink: 0;
+}
+.header-title { font-size: 17px; font-weight: 700; letter-spacing: .3px; }
+.header-sub { font-size: 11px; color: var(–text3); font-family: ‘JetBrains Mono’, monospace; }
+.header-right { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+/* CONTROLS */
+select, input[type=text], input[type=date], input[type=number] {
+background: var(–bg3);
+border: 1px solid var(–border);
+color: var(–text);
+border-radius: 8px;
+padding: 7px 12px;
+font-size: 13px;
+font-family: ‘Sarabun’, sans-serif;
+outline: none;
+transition: border-color .2s;
+}
+select:focus, input:focus { border-color: var(–blue); }
+.btn {
+border: none; cursor: pointer; border-radius: 8px;
+padding: 7px 16px; font-size: 13px; font-weight: 600;
+font-family: ‘Sarabun’, sans-serif;
+transition: opacity .15s, transform .1s;
+display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:hover { opacity: .85; }
+.btn:active { transform: scale(.97); }
+.btn-primary { background: linear-gradient(135deg, var(–blue2), var(–blue)); color: #fff; }
+.btn-green { background: linear-gradient(135deg, #14532d, #166534); color: #dcfce7; }
+.btn-ghost { background: transparent; border: 1px solid var(–border); color: var(–text2); }
+.btn-ghost:hover { background: rgba(255,255,255,.05) !important; }
+.btn-danger { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.3); color: var(–red); }
+/* KPI GRID */
+.kpi-grid {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+gap: 14px;
+padding: 22px 28px 0;
+}
+.kpi-card {
+background: var(–bg2);
+border: 1px solid var(–border);
+border-radius: 12px;
+padding: 16px 18px;
+animation: fadeUp .3s ease both;
+}
+.kpi-label { font-size: 11px; color: var(–text3); margin-bottom: 5px; letter-spacing: .4px; }
+.kpi-value { font-size: 21px; font-weight: 700; font-family: ‘JetBrains Mono’, monospace; }
+/* TABS */
+.tabs { display: flex; gap: 2px; padding: 18px 28px 0; border-bottom: 1px solid var(–border); }
+.tab {
+background: none; border: none; border-bottom: 2px solid transparent;
+padding: 8px 20px; font-size: 14px; font-weight: 600;
+color: var(–text3); cursor: pointer; font-family: ‘Sarabun’, sans-serif;
+margin-bottom: -1px; transition: color .2s, border-color .2s;
+}
+.tab:hover { color: var(–cyan); }
+.tab.active { color: var(–cyan); border-bottom-color: var(–blue); }
+/* CONTENT */
+.content { padding: 22px 28px; }
+.panel { display: none; animation: fadeUp .25s ease; }
+.panel.active { display: block; }
+/* TABLE */
+.tbl-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid var(–border); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+thead tr { background: var(–bg2); }
+th { padding: 11px 16px; text-align: left; font-size: 11px; font-weight: 600; color: var(–text3); letter-spacing: .5px; border-bottom: 1px solid var(–border); white-space: nowrap; }
+th.r, td.r { text-align: right; }
+td { padding: 11px 16px; border-bottom: 1px solid rgba(28,46,74,.5); vertical-align: middle; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr { transition: background .12s; }
+tbody tr:hover { background: rgba(30,58,95,.2); }
+.badge {
+display: inline-flex; align-items: center; gap: 4px;
+padding: 3px 10px; border-radius: 6px;
+font-size: 12px; font-weight: 600;
+}
+.badge-deposit { background: rgba(74,222,128,.1); color: var(–green); border: 1px solid rgba(74,222,128,.2); }
+.badge-withdraw { background: rgba(248,113,113,.1); color: var(–red); border: 1px solid rgba(248,113,113,.2); }
+.badge-dividend { background: rgba(251,191,36,.1); color: var(–yellow); border: 1px solid rgba(251,191,36,.2); }
+.mono { font-family: ‘JetBrains Mono’, monospace; }
+.stock-name { color: var(–cyan); font-weight: 600; }
+.date-cell { color: var(–text3); font-family: ‘JetBrains Mono’, monospace; font-size: 12.5px; }
+.empty-state { text-align: center; padding: 60px 0; color: var(–text3); }
+.action-btn {
+background: none; border: none; cursor: pointer; padding: 4px 7px;
+border-radius: 6px; font-size: 14px; transition: background .15s;
+opacity: .5;
+}
+.action-btn:hover { background: rgba(255,255,255,.08); opacity: 1; }
+/* SUMMARY */
+.chart-wrap {
+background: var(–bg2);
+border: 1px solid var(–border);
+border-radius: 12px;
+padding: 20px;
+margin-bottom: 20px;
+}
+.chart-title { font-size: 12px; color: var(–text3); margin-bottom: 14px; }
+.bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 110px; overflow-x: auto; padding-bottom: 4px; }
+.bar-group { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 42px; }
+.bars { display: flex; align-items: flex-end; gap: 2px; height: 80px; }
+.bar { width: 9px; border-radius: 3px 3px 0 0; transition: height .5s cubic-bezier(.34,1.56,.64,1); min-height: 2px; }
+.bar-label { font-size: 10px; color: var(–text3); }
+.legend { display: flex; gap: 14px; margin-top: 10px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(–text3); }
+.legend-dot { width: 9px; height: 9px; border-radius: 2px; }
+.sum-tbl tfoot tr { background: var(–bg2); font-weight: 700; }
+.sum-tbl tfoot td { border-top: 2px solid var(–border); color: var(–text); }
+/* MODAL */
+.overlay {
+position: fixed; inset: 0; background: rgba(0,0,0,.75);
+display: flex; align-items: center; justify-content: center;
+z-index: 100; padding: 16px;
+opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+background: var(–bg2);
+border: 1px solid var(–border2);
+border-radius: 16px;
+padding: 26px;
+width: 100%; max-width: 430px;
+transform: translateY(-16px);
+transition: transform .25s ease;
+}
+.overlay.open .modal { transform: translateY(0); }
+.modal-title { font-size: 16px; font-weight: 700; color: var(–cyan); margin-bottom: 20px; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12px; color: var(–text3); margin-bottom: 5px; }
+.field input, .field select { width: 100%; }
+.type-btns { display: flex; gap: 8px; }
+.type-btn {
+flex: 1; padding: 8px 4px; border-radius: 8px;
+font-size: 13px; font-weight: 600; cursor: pointer;
+font-family: ‘Sarabun’, sans-serif;
+transition: all .2s;
+border: 1px solid var(–border);
+background: transparent; color: var(–text3);
+}
+.type-btn.sel-deposit { background: rgba(74,222,128,.1); border-color: var(–green); color: var(–green); }
+.type-btn.sel-withdraw { background: rgba(248,113,113,.1); border-color: var(–red); color: var(–red); }
+.type-btn.sel-dividend { background: rgba(251,191,36,.1); border-color: var(–yellow); color: var(–yellow); }
+.modal-footer { display: flex; gap: 10px; margin-top: 20px; }
+.modal-footer .btn { flex: 1; padding: 10px; justify-content: center; }
+/* TOAST */
+#toast {
+position: fixed; bottom: 22px; right: 22px;
+padding: 12px 20px; border-radius: 10px;
+font-size: 14px; font-weight: 500;
+z-index: 200; pointer-events: none;
+transform: translateX(80px); opacity: 0;
+transition: transform .3s ease, opacity .3s ease;
+}
+#toast.show { transform: translateX(0); opacity: 1; }
+#toast.success { background: #052e16; border: 1px solid var(–green); color: var(–green); }
+#toast.error { background: #2d0a0a; border: 1px solid var(–red); color: var(–red); }
+@keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+@media (max-width: 600px) {
+.header { padding: 12px 16px; }
+.kpi-grid { padding: 14px 16px 0; gap: 10px; }
+.content { padding: 16px; }
+.tabs { padding: 14px 16px 0; }
+.header-right { gap: 6px; }
+}
+</style>
+</head>
+<body>
+<!-- HEADER -->
+<div class="header">
+<div class="header-logo">📈</div>
+<div>
+<div class="header-title">Stock Tracker</div>
+<div class="header-sub">บันทึกการซื้อขายหุ้นรายเดือน</div>
+</div>
+<div class="header-right">
+<select id="selYear" onchange="render()"></select>
+<select id="selType" onchange="render()">
+<option value="all">ทุกประเภท</option>
+<option value="deposit">ฝาก</option>
+<option value="withdraw">ถอน</option>
+<option value="dividend">ปันผล</option>
+</select>
+<button class="btn btn-green" onclick="exportExcel()">⬇ Export Excel</button>
+<button class="btn btn-primary" onclick="openModal()">+ เพิ่มรายการ</button>
+</div>
+</div>
+<!-- KPI -->
+<div class="kpi-grid" id="kpiGrid"></div>
+<!-- TABS -->
+<div class="tabs">
+<button class="tab active" onclick="switchTab('list',this)">รายการ</button>
+<button class="tab" onclick="switchTab('summary',this)">สรุปรายเดือน</button>
+</div>
+<!-- CONTENT -->
+<div class="content">
+<div id="panelList" class="panel active"></div>
+<div id="panelSummary" class="panel"></div>
+</div>
+<!-- MODAL -->
+<div class="overlay" id="overlay">
+<div class="modal">
+<div class="modal-title" id="modalTitle">➕ เพิ่มรายการใหม่</div>
+<div class="field"><label>วันที่ *</label><input type="date" id="fDate"></div>
+<div class="field"><label>ชื่อหุ้น *</label><input type="text" id="fStock" placeholder="เช่น PTT, KBANK, SCB"></div>
+<div class="field"><label>จำนวนเงิน (บาท) *</label><input type="number" id="fAmount" placeholder="0.00" min="0" step="0.01"></div>
+<div class="field"><label>ประเภท *</label>
+<div class="type-btns">
+<button class="type-btn sel-deposit" onclick="selType('deposit',this)">↑ ฝาก</button>
+<button class="type-btn" onclick="selType('withdraw',this)">↓ ถอน</button>
+<button class="type-btn" onclick="selType('dividend',this)">★ ปันผล</button>
+</div>
+</div>
+<div class="field"><label>หมายเหตุ</label><input type="text" id="fNote" placeholder="รายละเอียดเพิ่มเติม"></div>
+<div class="modal-footer">
+<button class="btn btn-ghost" onclick="closeModal()">ยกเลิก</button>
+<button class="btn btn-primary" onclick="saveTransaction()" id="saveBtn">เพิ่มรายการ</button>
+</div>
+</div>
+</div>
+<div id="toast"></div>
+<script>
+const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const MONTHS_FULL = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+// STORAGE
+function load() {
+ try { return JSON.parse(localStorage.getItem('stock_tx') || '[]'); } catch { return []; }
+}
+function save(data) { localStorage.setItem('stock_tx', JSON.stringify(data)); }
+let transactions = load();
+if (!transactions.length) {
+ const now = new Date();
+ const y = now.getFullYear();
+ transactions = [
+   { id: 1, date: `${y}-01-15`, stock: 'PTT', type: 'deposit', amount: 50000, note: 'ซื้อหุ้น PTT' },
+   { id: 2, date: `${y}-01-28`, stock: 'KBANK', type: 'deposit', amount: 30000, note: 'ซื้อหุ้น KBANK' },
+   { id: 3, date: `${y}-02-10`, stock: 'PTT', type: 'dividend', amount: 1500, note: 'ปันผลรอบ Q4' },
+   { id: 4, date: `${y}-02-20`, stock: 'KBANK', type: 'withdraw', amount: 10000, note: 'ขายบางส่วน' },
+   { id: 5, date: `${y}-03-05`, stock: 'SCB', type: 'deposit', amount: 40000, note: 'ซื้อหุ้น SCB' },
+   { id: 6, date: `${y}-03-25`, stock: 'KBANK', type: 'dividend', amount: 2000, note: 'ปันผลพิเศษ' },
+ ];
+ save(transactions);
+}
+let editId = null;
+let selectedType = 'deposit';
+let activeTab = 'list';
+function fmt(n) { return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function getYears() {
+ const ys = [...new Set(transactions.map(t => t.date.split('-')[0]))].sort((a,b)=>b-a);
+ const cy = new Date().getFullYear().toString();
+ if (!ys.includes(cy)) ys.unshift(cy);
+ return ys;
+}
+function getYear() { return document.getElementById('selYear').value; }
+function getTypeFilter() { return document.getElementById('selType').value; }
+function buildYearSelect() {
+ const sel = document.getElementById('selYear');
+ const cy = new Date().getFullYear().toString();
+ const cur = sel.value || cy;
+ sel.innerHTML = getYears().map(y => `<option value="${y}" ${y===cur?'selected':''}>${y}</option>`).join('');
+}
+function getFiltered() {
+ const y = getYear(), tf = getTypeFilter();
+ return transactions
+   .filter(t => t.date.startsWith(y) && (tf === 'all' || t.type === tf))
+   .sort((a,b) => new Date(b.date) - new Date(a.date));
+}
+function getMonthlySummary() {
+ const y = getYear();
+ const map = {};
+ transactions.filter(t => t.date.startsWith(y)).forEach(t => {
+   const m = parseInt(t.date.split('-')[1]) - 1;
+   if (!map[m]) map[m] = { deposit: 0, withdraw: 0, dividend: 0 };
+   map[m][t.type] += t.amount;
+ });
+ return Array.from({ length: 12 }, (_, i) => ({
+   month: i,
+   deposit: map[i]?.deposit || 0,
+   withdraw: map[i]?.withdraw || 0,
+   dividend: map[i]?.dividend || 0,
+   net: (map[i]?.deposit||0) - (map[i]?.withdraw||0) + (map[i]?.dividend||0)
+ }));
+}
+function getTotals(summary) {
+ return {
+   deposit: summary.reduce((s,m) => s+m.deposit, 0),
+   withdraw: summary.reduce((s,m) => s+m.withdraw, 0),
+   dividend: summary.reduce((s,m) => s+m.dividend, 0),
+   net: summary.reduce((s,m) => s+m.net, 0),
+ };
+}
+function renderKPI(totals) {
+ const cards = [
+   { label: '↑ ฝากทั้งหมด', value: totals.deposit, color: 'var(--green)' },
+   { label: '↓ ถอนทั้งหมด', value: totals.withdraw, color: 'var(--red)' },
+   { label: '★ ปันผลรวม', value: totals.dividend, color: 'var(--yellow)' },
+   { label: '= สุทธิ', value: totals.net, color: totals.net >= 0 ? 'var(--cyan)' : 'var(--red)' },
+ ];
+ document.getElementById('kpiGrid').innerHTML = cards.map((c,i) => `
+<div class="kpi-card" style="animation-delay:${i*0.06}s">
+<div class="kpi-label">${c.label}</div>
+<div class="kpi-value" style="color:${c.color}">฿${fmt(c.value)}</div>
+</div>`).join('');
+}
+function renderList(filtered) {
+ if (!filtered.length) {
+   document.getElementById('panelList').innerHTML = `<div class="empty-state">ไม่มีรายการในช่วงนี้</div>`;
+   return;
+ }
+ const typeInfo = {
+   deposit: { cls: 'badge-deposit', icon: '↑', label: 'ฝาก' },
+   withdraw: { cls: 'badge-withdraw', icon: '↓', label: 'ถอน' },
+   dividend: { cls: 'badge-dividend', icon: '★', label: 'ปันผล' },
+ };
+ const colors = { deposit: 'var(--green)', withdraw: 'var(--red)', dividend: 'var(--yellow)' };
+ const rows = filtered.map(t => {
+   const ti = typeInfo[t.type];
+   return `<tr>
+<td class="date-cell">${t.date}</td>
+<td class="stock-name">${escHtml(t.stock)}</td>
+<td><span class="badge ${ti.cls}">${ti.icon} ${ti.label}</span></td>
+<td class="r mono" style="color:${colors[t.type]};font-weight:600">฿${fmt(t.amount)}</td>
+<td style="color:var(--text3);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(t.note||'')}</td>
+<td style="white-space:nowrap">
+<button class="action-btn" title="แก้ไข" onclick="startEdit(${t.id})">✏️</button>
+<button class="action-btn" title="ลบ" onclick="delTx(${t.id})">🗑️</button>
+</td>
+</tr>`;
+ }).join('');
+ document.getElementById('panelList').innerHTML = `
+<div class="tbl-wrap">
+<table>
+<thead><tr>
+<th>วันที่</th><th>หุ้น</th><th>ประเภท</th><th class="r">จำนวนเงิน</th><th>หมายเหตุ</th><th></th>
+</tr></thead>
+<tbody>${rows}</tbody>
+</table>
+</div>`;
+}
+function renderSummary(summary, totals) {
+ // Bar chart
+ const maxVal = Math.max(...summary.map(m => Math.max(m.deposit, m.withdraw, 1)));
+ const bars = summary.map(m => {
+   const dH = Math.round((m.deposit/maxVal)*80);
+   const wH = Math.round((m.withdraw/maxVal)*80);
+   const dvH = Math.round((m.dividend/maxVal)*80);
+   return `<div class="bar-group">
+<div class="bars">
+<div class="bar" style="background:var(--green);height:${dH}px" title="ฝาก: ฿${fmt(m.deposit)}"></div>
+<div class="bar" style="background:var(--red);height:${wH}px" title="ถอน: ฿${fmt(m.withdraw)}"></div>
+<div class="bar" style="background:var(--yellow);height:${dvH}px" title="ปันผล: ฿${fmt(m.dividend)}"></div>
+</div>
+<div class="bar-label">${MONTHS_TH[m.month]}</div>
+</div>`;
+ }).join('');
+ const hasData = summary.filter(m => m.deposit || m.withdraw || m.dividend);
+ const rows = hasData.map(m => `<tr>
+<td>${MONTHS_FULL[m.month]}</td>
+<td class="r mono" style="color:var(--green)">${m.deposit ? '฿'+fmt(m.deposit) : '—'}</td>
+<td class="r mono" style="color:var(--red)">${m.withdraw ? '฿'+fmt(m.withdraw) : '—'}</td>
+<td class="r mono" style="color:var(--yellow)">${m.dividend ? '฿'+fmt(m.dividend) : '—'}</td>
+<td class="r mono" style="color:${m.net>=0?'var(--cyan)':'var(--red)'};font-weight:700">฿${fmt(m.net)}</td>
+</tr>`).join('');
+ document.getElementById('panelSummary').innerHTML = `
+<div class="chart-wrap">
+<div class="chart-title">ภาพรวมรายเดือน ${getYear()}</div>
+<div class="bar-chart">${bars}</div>
+<div class="legend">
+<div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>ฝาก</div>
+<div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>ถอน</div>
+<div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>ปันผล</div>
+</div>
+</div>
+<div class="tbl-wrap">
+<table class="sum-tbl">
+<thead><tr>
+<th>เดือน</th><th class="r">ฝาก</th><th class="r">ถอน</th><th class="r">ปันผล</th><th class="r">สุทธิ</th>
+</tr></thead>
+<tbody>${rows || '<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--text3)">ยังไม่มีข้อมูล</td></tr>'}</tbody>
+<tfoot><tr>
+<td>รวมทั้งปี</td>
+<td class="r mono" style="color:var(--green)">฿${fmt(totals.deposit)}</td>
+<td class="r mono" style="color:var(--red)">฿${fmt(totals.withdraw)}</td>
+<td class="r mono" style="color:var(--yellow)">฿${fmt(totals.dividend)}</td>
+<td class="r mono" style="color:${totals.net>=0?'var(--cyan)':'var(--red)'}">฿${fmt(totals.net)}</td>
+</tr></tfoot>
+</table>
+</div>`;
+}
+function render() {
+ buildYearSelect();
+ const filtered = getFiltered();
+ const summary = getMonthlySummary();
+ const totals = getTotals(summary);
+ renderKPI(totals);
+ renderList(filtered);
+ renderSummary(summary, totals);
+}
+function switchTab(name, btn) {
+ activeTab = name;
+ document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+ btn.classList.add('active');
+ document.getElementById('panelList').classList.toggle('active', name === 'list');
+ document.getElementById('panelSummary').classList.toggle('active', name === 'summary');
+}
+// MODAL
+function openModal(tx) {
+ editId = tx ? tx.id : null;
+ document.getElementById('modalTitle').textContent = tx ? '✏️ แก้ไขรายการ' : '➕ เพิ่มรายการใหม่';
+ document.getElementById('saveBtn').textContent = tx ? 'บันทึก' : 'เพิ่มรายการ';
+ document.getElementById('fDate').value = tx ? tx.date : new Date().toISOString().split('T')[0];
+ document.getElementById('fStock').value = tx ? tx.stock : '';
+ document.getElementById('fAmount').value = tx ? tx.amount : '';
+ document.getElementById('fNote').value = tx ? (tx.note||'') : '';
+ selType(tx ? tx.type : 'deposit');
+ document.getElementById('overlay').classList.add('open');
+ setTimeout(() => document.getElementById('fStock').focus(), 100);
+}
+function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+function selType(type, btn) {
+ selectedType = type;
+ document.querySelectorAll('.type-btn').forEach(b => {
+   b.className = 'type-btn';
+   if (b.textContent.includes('ฝาก') && type === 'deposit') b.classList.add('sel-deposit');
+   if (b.textContent.includes('ถอน') && type === 'withdraw') b.classList.add('sel-withdraw');
+   if (b.textContent.includes('ปันผล') && type === 'dividend') b.classList.add('sel-dividend');
+ });
+}
+function saveTransaction() {
+ const date = document.getElementById('fDate').value.trim();
+ const stock = document.getElementById('fStock').value.trim().toUpperCase();
+ const amount = parseFloat(document.getElementById('fAmount').value);
+ const note = document.getElementById('fNote').value.trim();
+ if (!date || !stock || isNaN(amount) || amount <= 0) {
+   showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error'); return;
+ }
+ if (editId) {
+   const idx = transactions.findIndex(t => t.id === editId);
+   if (idx >= 0) transactions[idx] = { id: editId, date, stock, type: selectedType, amount, note };
+   showToast('แก้ไขรายการสำเร็จ');
+ } else {
+   transactions.push({ id: Date.now(), date, stock, type: selectedType, amount, note });
+   showToast('เพิ่มรายการสำเร็จ');
+ }
+ save(transactions);
+ buildYearSelect();
+ closeModal();
+ render();
+}
+function startEdit(id) {
+ const tx = transactions.find(t => t.id === id);
+ if (tx) openModal(tx);
+}
+function delTx(id) {
+ if (!confirm('ยืนยันลบรายการนี้?')) return;
+ transactions = transactions.filter(t => t.id !== id);
+ save(transactions);
+ render();
+ showToast('ลบรายการแล้ว');
+}
+// EXCEL EXPORT
+function exportExcel() {
+ const y = getYear();
+ const filtered = getFiltered();
+ const summary = getMonthlySummary();
+ const totals = getTotals(summary);
+ const wb = XLSX.utils.book_new();
+ // Sheet 1: transactions
+ const txRows = [['วันที่','หุ้น','ประเภท','จำนวนเงิน (บาท)','หมายเหตุ']];
+ const typeLabel = { deposit: 'ฝาก', withdraw: 'ถอน', dividend: 'ปันผล' };
+ filtered.forEach(t => txRows.push([t.date, t.stock, typeLabel[t.type], t.amount, t.note||'']));
+ const ws1 = XLSX.utils.aoa_to_sheet(txRows);
+ ws1['!cols'] = [{wch:14},{wch:12},{wch:10},{wch:18},{wch:30}];
+ XLSX.utils.book_append_sheet(wb, ws1, 'รายการทั้งหมด');
+ // Sheet 2: monthly summary
+ const sumRows = [['เดือน','ฝาก (บาท)','ถอน (บาท)','ปันผล (บาท)','สุทธิ (บาท)']];
+ summary.filter(m => m.deposit||m.withdraw||m.dividend).forEach(m =>
+   sumRows.push([MONTHS_FULL[m.month], m.deposit, m.withdraw, m.dividend, m.net])
+ );
+ sumRows.push(['รวมทั้งปี', totals.deposit, totals.withdraw, totals.dividend, totals.net]);
+ const ws2 = XLSX.utils.aoa_to_sheet(sumRows);
+ ws2['!cols'] = [{wch:16},{wch:16},{wch:16},{wch:16},{wch:16}];
+ XLSX.utils.book_append_sheet(wb, ws2, `สรุปรายเดือน ${y}`);
+ XLSX.writeFile(wb, `stock-tracker-${y}.xlsx`);
+ showToast('ส่งออก Excel สำเร็จ ✓');
+}
+// TOAST
+let toastTimer;
+function showToast(msg, type='success') {
+ const el = document.getElementById('toast');
+ el.textContent = (type==='success' ? '✓ ' : '⚠ ') + msg;
+ el.className = `show ${type}`;
+ clearTimeout(toastTimer);
+ toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+// UTILS
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// CLOSE MODAL ON OVERLAY CLICK
+document.getElementById('overlay').addEventListener('click', function(e) {
+ if (e.target === this) closeModal();
+});
+// CLOSE ON ESC
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+// INIT
+render();
+</script>
+</body>
+</html>
